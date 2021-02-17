@@ -132,7 +132,7 @@ ggplot(red, aes(x=date_tpl, y=height_cm, fill = crop))  +
 
 ## Fitting the 'drm' model for waterhemp weight.
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
-reduk = drm(data=red, weight_g~date_tpl, crop, fct =W1.3(fixed = c(NA,NA,NA), names = c("slope", "upper", "ec50")))
+reduk = drm(data=red, weight_g ~ date_tpl, crop, fct =W1.3(fixed = c(NA,NA,NA), names = c("slope", "upper", "ec50")))
 summary(reduk)
 
 

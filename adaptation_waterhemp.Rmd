@@ -1,0 +1,101 @@
+---
+title: "adaptation_waterhemp"
+author: "Maxwel Coura Oliveira"
+date: "2/15/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  warning = FALSE,
+  message = FALSE)
+```
+
+```{r load-packages}
+library(tidyverse)
+library(ggplot2)
+library(drc)
+```
+
+
+```{r load-data}
+data = read_csv("waterhemp.csv")
+```
+
+
+```{r tidy-data}
+data1 <- data %>% 
+  mutate(crop = fct_recode(crop,
+    "38 cm soybean" = "narrow",
+    "76 cm soybean" = "wide",
+  )) %>% 
+  unite(date_harv, c("date_harv", "year"), sep = "-", remove = FALSE) %>% 
+  mutate(date_harv = lubridate::dmy(date_harv), # make it as a day
+         doy_harv = lubridate::yday(date_harv)) # you can count day of year
+```
+
+
+```{r visualize}
+data1 %>% 
+  ggplot(aes(x = date_tpl, y = weight_g, color = crop)) +
+  geom_point()
+```
+
+
+
+
+
+
+
+```{r nested}
+data2 <- data1 %>% 
+  group_by(crop) %>% 
+  nest()
+```
+
+
+```{r model-function}
+drc_model <- function(df){
+  drm(weight_g ~ date_tpl, 
+      fct = W1.3(fixed = c(NA, NA, NA), 
+              names = c("slope", "upper", "ec50")), data = df)
+}
+```
+
+
+```{r add-model}
+data3 <- data2 %>% 
+  mutate(model = map(data, drc_model))
+```
+
+
+```{r summary}
+data4 <- data3 %>% 
+  mutate(summary = map(model, summary))
+```
+
+```{r prepare-ggplot}
+fallow_model <- data4$model[[1]]
+nd_fallow <- expand_grid(date_tpl = exp(seq(log(160), log(212), length=212)),
+                        crop = "fallow")
+pm_fallow <- predict(fallow_model, newdata = nd_fallow, interval = "confidence")
+
+
+
+
+ndd$p <- pmm[,1]
+ndd$pmin <- pmm[,2]
+ndd$pmax <- pmm[,3]
+
+red$date_tpl01 = red$date_tpl
+red$date_tpl01[red$date_tpl01 == 0] <- 0.5
+```
+
+```{r}
+plot(data4$model[[4]], type = "all")
+```
+
+
+
+
