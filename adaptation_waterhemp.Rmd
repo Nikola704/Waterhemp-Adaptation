@@ -16,6 +16,7 @@ knitr::opts_chunk$set(
 library(tidyverse)
 library(ggplot2)
 library(drc)
+library(broom)
 ```
 
 
@@ -27,8 +28,8 @@ data = read_csv("waterhemp.csv")
 ```{r tidy-data}
 data1 <- data %>% 
   mutate(crop = fct_recode(crop,
-    "38 cm soybean" = "narrow",
-    "76 cm soybean" = "wide",
+    "soybean_38" = "narrow",
+    "soybean_76" = "wide",
   )) %>% 
   unite(date_harv, c("date_harv", "year"), sep = "-", remove = FALSE) %>% 
   mutate(date_harv = lubridate::dmy(date_harv), # make it as a day
@@ -72,13 +73,122 @@ data3 <- data2 %>%
 
 ```{r summary}
 data4 <- data3 %>% 
-  mutate(summary = map(model, summary))
+  mutate(summary = map(model, tidy))
 ```
+
+```{r}
+data5 <- data4 %>% 
+  unnest(data) %>% 
+  mutate(nd = 
+           map(date_tpl,
+               ~expand_grid(date_tpl =
+                              exp(seq(log(160), log(212),
+                                      length=212))))) %>% 
+  group_by(crop, model, summary, nd) %>% 
+  nest() 
+```
+
+```{r}
+f_model <- data5$model[[1]]
+fallow <- data5 %>% 
+  ungroup() %>% 
+  unnest(nd) %>% 
+  filter(crop == "fallow") %>% 
+  dplyr::select(crop, date_tpl)
+
+pred_f <- augment(f_model, newdata = fallow , interval = "confidence")
+
+
+cn_model <- data5$model[[4]]
+corn <- data5 %>% 
+  ungroup() %>% 
+  unnest(nd) %>% 
+  filter(crop == "corn") %>% 
+  dplyr::select(crop, date_tpl)
+
+pred_cn <- augment(cn_model, newdata = corn, interval = "confidence")
+
+
+soy_38_model <- data5$model[[2]]
+soy_38 <- data5 %>% 
+  ungroup() %>% 
+  unnest(nd) %>% 
+  filter(crop == "soybean_38") %>% 
+  dplyr::select(crop, date_tpl)
+
+pred_s38 <- augment(soy_38_model, newdata = soy_38, interval = "confidence")
+
+
+soy_76_model <- data5$model[[3]]
+soy_76 <- data5 %>% 
+  ungroup() %>% 
+  unnest(nd) %>% 
+  filter(crop == "soybean_76") %>% 
+  dplyr::select(crop, date_tpl)
+
+pred_s76 <- augment(soy_76_model, newdata = soy_76, interval = "confidence")
+
+
+
+nd <- bind_rows(pred_f, pred_cn, pred_s38, pred_s76) %>% 
+  mutate(.fitted = round(.fitted, 2))
+```
+
+
+```{r}
+nd %>% 
+  ggplot(aes(x = date_tpl, y = .fitted, color = crop)) +
+  geom_line() +
+  geom_jitter(data = data1, aes(y = weight_g, color = crop), alpha = 0.3) +
+  coord_trans(x= "log")
+```
+
+
+
+------
+
+
+# Trying all together (did not work)
+
+
+
+```{r}
+model_pred <- function(model_fit) {
+  predict(model_fit,  interval = "confidence")
+}
+```
+
+```{r}
+data6 %>% 
+  ungroup() %>%
+  unnest(predict) %>% 
+  janitor::clean_names()
+```
+
+
+```{r}
+data7 <- data5 %>% 
+  
+```
+
+
+
+
+
+
+
 
 ```{r prepare-ggplot}
 fallow_model <- data4$model[[1]]
-nd_fallow <- expand_grid(date_tpl = exp(seq(log(160), log(212), length=212)),
-                        crop = "fallow")
+soybean_38 <- data4$model[[2]]
+soybean_76 <- data4$model[[3]]
+corn <- data4$model[[4]]
+
+
+nd <- expand_grid(date_tpl = exp(seq(log(160), log(212), length=212)),
+                  crop = c("fallow", "38_cm_soybean", "76_cm_soybean", "corn"))
+                  
+
 pm_fallow <- predict(fallow_model, newdata = nd_fallow, interval = "confidence")
 
 
