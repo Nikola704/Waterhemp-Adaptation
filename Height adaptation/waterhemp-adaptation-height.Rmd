@@ -1,0 +1,128 @@
+---
+title: "Waterhemp Adaptation Trial"
+author: "Nikola Arsenijevic"
+date: "11/3/2020"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+library(drc)
+library(ggplot2)
+library(tidyverse)
+library(lme4)
+library(lmerTest)
+library(emmeans)
+library(plotly)
+library(plotrix)
+library(htmltools)
+
+options(scipen = 999)
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+data = read_csv("waterhemp_u.csv")
+
+data$crop=factor(data$crop, 
+                levels = c("corn", "narrow", "wide", "fallow"), 
+                labels = c("Corn", "38 cm soybean", "76 cm soybean", "Fallow (Control)"))
+
+
+
+```
+
+## Roughly plotting the data, to view the overall look of it (height).
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(data, 
+       aes(x=date_tpl, 
+           y=height_cm, 
+           color=crop)) + 
+  geom_point() + 
+  theme_classic() +
+  xlab("Transplant timing (1 - 5)") +
+  ylab("Waterhemp transplant date (DOY")
+```
+
+
+## Fitting the 'drm' model for waterhemp height reduction
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+height_drm = drm(data=data, height_cm~date_tpl, crop, fct =W2.3(fixed = c(NA, NA,NA), names = c("slope", "upper", "ec50")))
+summary(height_drm)
+
+plot(height_drm, type="b", ylim = c(0,155))
+```
+
+## Checking if the fitted model is the best for the loaded data
+```{r message=FALSE, warning=FALSE}
+mselect(height_drm, list(l3(), l4(), W2.3(), W1.3(), W1.4(), LL.3(), W2.4()),
+nested = F,
+sorted = c("IC", "Res var", "Lack of fit", "no"),
+linreg = F, icfct = AIC)
+```
+
+
+## Estimating ED50 and ED90 values for height reduction. Also, comparing the slopes of corn, 15in and 30in soybean.
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+ED(height_drm, c(50,90), type="absolute", interval = "delta")
+compParm(height_drm, "slope", "-")
+```
+
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+newdata <- expand.grid(date_tpl=exp(seq(log(161), log(211), length=211)))
+
+newdata1 <- data.frame(crop =c("Corn"), newdata)
+newdata2 <- data.frame(crop =c("38 cm soybean"), newdata)
+newdata3 <- data.frame(crop =c("76 cm soybean"), newdata)
+newdata4 <- data.frame(crop =c("Fallow (Control)"), newdata)
+nd <- rbind(newdata1, newdata2, newdata3, newdata4)
+str(nd)
+
+
+pm <- predict(height_drm, newdata = nd, interval="confidence")
+
+nd$p <- pm[,1]
+nd$pmin <- pm[,2]
+nd$pmax <- pm[,3]
+
+data$date_tpl0 = data$date_tpl
+data$date_tpl0[data$date_tpl0 == 0] <- 0.5
+str(nd)
+```
+
+```{r echo=FALSE, fig.height=10, fig.width=10, message=FALSE, warning=FALSE}
+ggplot(data, aes(x=date_tpl, y=height_cm, fill = crop))  +
+  
+  geom_ribbon(data=nd, aes(x=date_tpl, y=p, ymin=pmin, ymax=pmax), alpha=0.2) +
+  geom_line(data=nd, aes(x=date_tpl, y=p)) + scale_fill_brewer(palette = "Set1") + 
+  
+  theme_classic() + ylim(-10, 165)+ xlim(161, 215) +
+  
+  labs(title = "Impact of corn and soybean canopy \n on waterhemp height \n") + 
+  
+  labs(x= "\n Transplant timing \n (increments in 10 days)", y = "Waterhemp height  (cm) \n") +
+  theme(text = element_text(size=22),
+  plot.background = element_rect(fill = "white"),
+  axis.line = element_line(colour = "black", 
+                           size = 0.1, linetype = "solid"),
+  legend.position = "top", legend.title = element_blank(),
+  plot.title = element_text(face = "bold", colour = "black", hjust = .5),
+  aspect.ratio = 1/1,
+  axis.text = element_text(face = "bold",color = "black")) + scale_x_discrete(name = "Day of the Year", limits=c(161, 171,181,191,201,211)) +
+  annotate("point", x = c(165, 175, 185, 195, 205), y=c(125.37, 78.37, 28.43, 11.31, 8), colour = "black", size=3.5, pch=15, alpha=0.5) +                    # corn 2019 
+  annotate("point", x = c(165, 175, 185, 195, 205), y=c(83.18, 36.53, 9.75, 1.06, 0.93), colour = "black", size=4, pch=16, alpha=0.5)+                     # 15in soybean
+  annotate("point", x = c(165, 175, 185, 195, 205), y=c(121.75, 74.41, 13.37, 3.37, 1.125), colour = "black", size=3.5, pch=17, alpha=0.5)+                  # 30in soybean
+  annotate("point", x = c(165, 175, 185, 195, 205), y=c(126, 138.75, 97.62, 69.5, 51.65), colour = "black", size=3.5, pch=18, alpha=0.5) +              # fallow
+  annotate("point", x = c(161, 171, 181, 192, 201, 211), y=c(105.43, 91.56, 62.43, 32.81, 12.5, 10.75), colour = "red", size=3.5, pch=15, alpha=0.5) +   # corn 2020
+  annotate("point", x = c(161, 171, 181, 192, 201, 211), y=c(138.68, 95.18, 13.18, 4.81, 0,0), colour = "red", size=3.5, pch=16, alpha=0.5)+             # 15in soybean
+  annotate("point", x = c(161, 171, 181, 192, 201, 211), y=c(124, 149.12, 81.18, 9.5,0,0), colour = "red", size=3.5, pch=17, alpha=0.5)+              # 3in soybean
+  annotate("point", x = c(161, 171, 181, 192, 201, 211), y=c(151.31, 128.37, 122.75, 121.62, 95.87, 68.31), colour = "red", size=4, pch=18, alpha=0.5, group=c("fallow"))  # fallow
+  
+```
+
+
+
+
+
+

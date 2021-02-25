@@ -17,19 +17,19 @@ library(emmeans)
 library(plotly)
 library(plotrix)
 library(htmltools)
-install.packages("usethis")
+library(broom)
 ```
 
 ```{r message=FALSE, warning=FALSE, include=FALSE}
 red = read_csv("waterhemp.csv")
-
-#red = read_csv("wh.csv")
-
-#thered=read_csv("waterhemp.csv")
-#str(red)
 red$crop=factor(red$crop, levels = c("corn", "narrow", "wide", "fallow"), labels = c("Corn", "38 cm soybean", "76 cm soybean", "Fallow (Control)"))
-#thered$crop=factor(thered$crop, levels = c("corn", "narrow", "wide", "fallow"), labels = c("Corn", "15-in soybean", "30-in soybean", "Fallow (Control)"))
 ```
+
+```{r}
+
+```
+
+
 
 ## Roughly plotting the data, to view the overall look of it (height).
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
@@ -58,6 +58,53 @@ summary(redukcija)
 
 plot(redukcija, type="b", ylim = c(0,155))
 ```
+
+
+```{r}
+dff<- tidy(redukcija, conf.int = T)
+
+dff
+
+dff %>%
+  filter(term=="upper") %>%
+  ggplot(aes(x= fct_reorder(curve, estimate) , y=estimate)) +
+  geom_point() + 
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high)) +
+  coord_flip() + 
+  geom_jitter(data = red %>% 
+                #filter(date_tpl %in% c(161,165)) %>%
+                rename(estimate=height_cm, 
+                       curve=crop), aes(y=estimate, color= date_tpl == 161), alpha=1) 
+
+
+
+dff %>%
+  filter(term=="upper") %>%
+  ggplot(aes(x= fct_reorder(curve, estimate) , y=estimate)) +
+  geom_point() + 
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high)) +
+  coord_flip() + 
+  geom_jitter(data = red %>% 
+                #filter(date_tpl %in% c(161,165)) %>%
+                rename(estimate=height_cm, 
+                       curve=crop), aes(y=estimate, color=date_tpl == 165), alpha=1) 
+
+dff %>%
+  filter(term=="upper") %>%
+  ggplot(aes(x= fct_reorder(curve, estimate) , y=estimate)) +
+  geom_point() + 
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high)) +
+  coord_flip() + 
+  geom_jitter(data = red %>% 
+                #filter(date_tpl %in% c(161,165)) %>%
+                rename(estimate=height_cm, 
+                       curve=crop), aes(y=estimate, color=date_tpl > 175), alpha=1) 
+
+# was playing with the values above a bit.
+
+```
+
+
 
 ## Checking if the fitted model is the best for the loaded data
 ```{r message=FALSE, warning=FALSE}
@@ -132,15 +179,33 @@ ggplot(red, aes(x=date_tpl, y=height_cm, fill = crop))  +
 
 ## Fitting the 'drm' model for waterhemp weight.
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
-reduk = drm(data=red, weight_g ~ date_tpl, crop, fct =W1.3(fixed = c(NA,NA,NA), names = c("slope", "upper", "ec50")))
+reduk = drm(data=red, weight_g ~ date_tpl, crop, fct =W1.3(fixed = c(NA,500,NA), names = c("slope", "upper", "ec50")))
 summary(reduk)
 
+options(scipen = 999)
 
+```
 
-
+```{r}
 plot(reduk, ylim=c(0,500))
 
+df
+```
 
+```{r}
+df <- tidy(reduk, conf.int = T)
+
+df
+
+```
+
+```{r ggplot}
+df %>%
+  filter(term=="ec50") %>%
+  ggplot(aes(x= fct_reorder(curve, estimate) , y=estimate)) +
+  geom_point() + 
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high)) +
+  coord_flip()
 ```
 
 
