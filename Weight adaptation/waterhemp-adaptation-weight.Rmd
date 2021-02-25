@@ -44,10 +44,10 @@ ggplot(data,
 
 ## Fitting the 'drm' model for waterhemp weight reduction
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
-weight_drm = drm(data=data, weight_g~GDD, crop, fct =W1.3(fixed = c(NA,350,NA), names = c("slope","upper", "ec50")))
+weight_drm = drm(data=data, weight_g ~ GDD, crop, fct = W2.4(fixed = c(NA,0,500,NA), names = c("slope","lower", "upper", "ec50")))
 summary(weight_drm)
 
-plot(weight_drm, type="b")
+plot(weight_drm, type="b", ylim = c(0, 400))
 ```
 
 ## Checking if the fitted model is the best for the loaded data
@@ -59,7 +59,7 @@ linreg = F, icfct = AIC)
 ```
 
 
-## Estimating ED50 and ED90 values for height reduction. Also, comparing the slopes of corn, 15in and 30in soybean.
+## Estimating ED50 and ED90 values for weight reduction. Also, comparing the slopes of corn, 15in and 30in soybean.
 ```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
 ED(weight_drm, c(50,90), type="absolute", interval = "delta")
 compParm(weight_drm, "slope", "-")
@@ -67,7 +67,7 @@ compParm(weight_drm, "slope", "-")
 
 
 ```{r message=FALSE, warning=FALSE, include=FALSE}
-newdata <- expand.grid(GDD=exp(seq(log(168), log(748), length=748)))
+newdata <- expand.grid(GDD=exp(seq(log(165), log(749), length=749)))
 
 newdata1 <- data.frame(crop =c("Corn"), newdata)
 newdata2 <- data.frame(crop =c("38 cm soybean"), newdata)
@@ -83,16 +83,17 @@ nd$p <- pm[,1]
 nd$pmin <- pm[,2]
 nd$pmax <- pm[,3]
 
-data$date_tpl0 = data$date_tpl
-data$date_tpl0[data$date_tpl0 == 0] <- 0.5
+data$GDD_0 = data$GDD
+data$GDD_0[data$GDD_0 == 0] <- 0.5
+
 str(nd)
 ```
 
 
-```{r echo=FALSE, fig.height=7, fig.width=10, message=FALSE, warning=FALSE}
+```{r echo=FALSE, fig.height=13, fig.width=20, message=FALSE, warning=FALSE}
 ggplot(data, aes(x=GDD, y=weight_g, fill = crop))  +
   
-  geom_ribbon(data=nd, aes(x=GDD, y=p, ymin=pmin, ymax=pmax), alpha=0.8) +
+  geom_ribbon(data=nd, aes(x=GDD, y=p, ymin=pmin, ymax=pmax), alpha=0.65) +
   geom_line(data=nd, aes(x=GDD, y=p)) + 
   scale_fill_brewer(palette = "Set1") + 
   
