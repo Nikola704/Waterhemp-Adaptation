@@ -1,0 +1,104 @@
+---
+title: "Waterhemp - Master Thesis"
+author: "Nikola Arsenijevic"
+date: "3/10/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+library(drc)
+library(ggplot2)
+library(tidyverse)
+library(lme4)
+library(lmerTest)
+library(emmeans)
+library(plotly)
+library(plotrix)
+library(htmltools)
+library(ggthemes)
+```
+
+```{r}
+data = read_csv("waterhemp-new-final.csv")
+
+data$crop=factor(data$crop, 
+                 levels = c("corn", "narrow", "wide", "fallow"), 
+                 labels = c("Corn", "38 cm soybean", "76 cm soybean", "Fallow (Control)"))
+
+options(scipen = 999)
+```
+
+## Roughly plotting the data, to view the overall look of it (weight).
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(data, 
+       aes(x = tpl_1, 
+           y=weight_reduction_crop, 
+           color=crop)) + 
+  geom_point() + 
+  theme_classic() +
+  xlab("Transplanting period (days)") +
+  ylab("Waterhemp weight")
+```
+
+
+
+## Fitting the 'drm' model for waterhemp weight reduction
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+weight_drm1 = drm(data=data, weight_reduction_crop ~ tpl_1, crop, fct = W2.4(fixed = c(NA,0,100,NA), names = c("slope","lower", "upper", "ec50")))
+
+summary(weight_drm1)
+
+plot(weight_drm1, type="b", log = "", ylim=c(0,100))
+
+```
+
+
+```{r message=FALSE, warning=FALSE}
+mselect(weight_drm1, list(l3(), l4(), W1.3(), W2.3(), W1.4(), W1.4(), W2.4()),
+nested = F,
+sorted = c("IC", "Res var", "Lack of fit", "no"),
+linreg = F, icfct = AIC)
+```
+
+## Estimating ED50 and ED90 values for weight reduction. Also, comparing the slopes of corn, 15in and 30in soybean.
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+ED(weight_drm1, c(50,90), type="absolute", interval = "delta")
+compParm(weight_drm1, "slope", "-")
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+newdataa <- expand.grid(tpl_1=exp(seq(log(2), log(51), length=51)))
+
+newdataa1 <- data.frame(crop =c("Corn"), newdataa)
+newdataa2 <- data.frame(crop =c("38 cm soybean"), newdataa)
+newdataa3 <- data.frame(crop =c("76 cm soybean"), newdataa)
+newdataa4 <- data.frame(crop =c("Fallow (Control)"), newdataa)
+ndd <- rbind(newdataa1, newdataa2, newdataa3, newdataa4)
+
+
+pmm <- predict(weight_drm1, newdata = ndd, interval="confidence")
+
+ndd$p <- pmm[,1]
+ndd$pmin <- pmm[,2]
+ndd$pmax <- pmm[,3]
+
+data$tpl_11 = data$tpl_1
+data$tpl_11[data$tpl_11 == 0] <- 0.5
+```
+
+
+```{r}
+ggplot(data, aes(x=tpl_1, y=weight_reduction_fal_0, fill = crop)) + 
+  
+  geom_ribbon(data=ndd, aes(x=tpl_1, y=p, ymin=pmin, ymax=pmax), alpha=0.25) + 
+  geom_line(data=ndd, aes(x=tpl_1, y=p)) + scale_fill_brewer(palette = "Set1") +
+  
+  theme_clean() + 
+ # ylim(-10,114) + 
+  scale_y_continuous(breaks = seq(from = 0, to = 100, by = 25))
+
+```

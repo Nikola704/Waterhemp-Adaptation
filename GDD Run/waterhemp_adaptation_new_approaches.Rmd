@@ -1,0 +1,152 @@
+---
+title: "WHA - New Approaches"
+author: "Nikola Arsenijevic"
+date: "3/6/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+library(drc)
+library(ggplot2)
+library(tidyverse)
+library(lme4)
+library(lmerTest)
+library(emmeans)
+library(plotly)
+library(plotrix)
+library(htmltools)
+
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+data = read_csv("waterhemp_u.csv")
+
+data$crop=factor(data$crop, 
+                 levels = c("corn", "narrow", "wide", "fallow"), 
+                 labels = c("Corn", "38 cm soybean", "76 cm soybean", "Fallow (Control)"))
+
+#options(scipen = 999)
+```
+
+## Roughly plotting the data, to view the overall look of it (weight).
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(data, 
+       aes(x = tpl, 
+           y=red_all, 
+           color=crop)) + 
+  geom_point() + 
+  theme_classic() +
+  xlab("Waterhemp transplant date (DOY)") +
+  ylab("Waterhemp weight")
+```
+
+## Fitting the 'drm' model for waterhemp weight reduction
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+weight_drm1 = drm(data=data, test_0 ~ tpl, crop, fct = W1.4(fixed = c(NA,0,100,NA), names = c("slope","lower", "upper", "ec50")))
+weight_drm2 = drm(data=data, test_0 ~ tpl, crop, fct = W1.4(fixed = c(NA,NA,NA,NA), names = c("slope","lower", "upper", "ec50")))
+
+weight_drm3 = drm(data=data, test_0 ~ tpl, crop, fct = W2.4(fixed = c(NA,0,100,NA), names = c("slope","lower", "upper", "ec50")))
+weight_drm4 = drm(data=data, test_0 ~ tpl, crop, fct = W2.4(fixed = c(NA,NA,NA,NA), names = c("slope","lower", "upper", "ec50")))
+
+weight_drm5 = drm(data=data, test_0 ~ tpl, crop, fct = l4(fixed = c(NA,0,100,NA), names = c("slope","lower", "upper", "ec50")))
+#weight_drm6 = drm(data=data, weight_0 ~ tpl, crop, fct = l4(fixed = c(NA,NA,NA,NA), names = c("slope","lower", "upper", "ec50")))
+
+weight_drm7 = drm(data=data, test_0 ~ tpl, crop, fct = W2.3(fixed = c(NA,NA,NA), names = c("slope","upper", "ec50")))
+weight_drm8 = drm(data=data, test_0 ~ tpl, crop, fct = W2.3(fixed = c(NA,100,NA), names = c("slope","upper", "ec50")))
+
+weight_drm9 = drm(data=data, test_0 ~ tpl, crop, fct = W1.3(fixed = c(NA,NA,NA), names = c("slope","upper", "ec50")))
+weight_drm10 = drm(data=data, test_0 ~ tpl, crop, fct = W1.3(fixed = c(NA,100,NA), names = c("slope","upper", "ec50")))
+
+
+summary(weight_drm1)
+summary(weight_drm2)
+summary(weight_drm3)
+summary(weight_drm4)
+summary(weight_drm5)
+#summary(weight_drm6)
+summary(weight_drm7)
+summary(weight_drm8)
+#summary(weight_drm9)
+summary(weight_drm10)
+
+
+plot(weight_drm1, type="b", ylim = c(0, 100), log = "")
+plot(weight_drm2, type="b", ylim = c(0, 100), log = "")
+plot(weight_drm3, type="b", ylim = c(0, 100), log = "")
+plot(weight_drm4, type="b", ylim = c(0, 100), log = "")
+plot(weight_drm5, type="b", ylim = c(0, 100), log = "")
+#plot(weight_drm6, type="b", ylim = c(0, 100), log = "")
+plot(weight_drm7, type="b", ylim = c(0, 100), log = "")
+plot(weight_drm8, type="b", ylim = c(0, 100), log = "")
+#plot(weight_drm9, type="b", ylim = c(0, 100), log = "")
+plot(weight_drm10, type="b", ylim = c(0, 100), log = "")
+```
+
+
+## Checking if the fitted model is the best for the loaded data
+```{r message=FALSE, warning=FALSE}
+mselect(weight_drm, list(l3(), l4(), W2.3(), W1.4(),LL.3(), LL.5(), W1.3(), W1.4(), W2.4()),
+nested = F,
+sorted = c("IC", "Res var", "Lack of fit", "no"),
+linreg = F, icfct = AIC)
+```
+
+## Estimating ED50 and ED90 values for weight reduction. Also, comparing the slopes of corn, 15in and 30in soybean.
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+ED(weight_drm4, c(50,90), type="absolute", interval = "delta")
+compParm(weight_drm, "slope", "-")
+```
+
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+newdata <- expand.grid(tpl=exp(seq(log(1), log(51), length=51)))
+
+newdata1 <- data.frame(crop =c("Corn"), newdata)
+newdata2 <- data.frame(crop =c("38 cm soybean"), newdata)
+newdata3 <- data.frame(crop =c("76 cm soybean"), newdata)
+newdata4 <- data.frame(crop =c("Fallow (Control)"), newdata)
+nd <- rbind(newdata1, newdata2, newdata3, newdata4)
+str(nd)
+
+
+pm <- predict(weight_drm, newdata = nd, interval="confidence")
+
+nd$p <- pm[,1]
+nd$pmin <- pm[,2]
+nd$pmax <- pm[,3]
+
+data$tpl_0 = data$tpl
+data$tpl_0[data$tpl_0 == 0] <- 0.5
+
+str(nd)
+```
+
+
+```{r echo=FALSE, fig.height=13, fig.width=20, message=FALSE, warning=FALSE}
+ggplot(data, aes(x=tpl, y=red_all, fill = crop))  +
+  
+  geom_ribbon(data=nd, aes(x=tpl, y=p, ymin=pmin, ymax=pmax), alpha=0.65) +
+  geom_line(data=nd, aes(x=tpl, y=p)) + 
+  scale_fill_brewer(palette = "Set1") + 
+  
+  theme_classic() +
+  
+  labs(title = "Impact of corn and soybean canopy \n on waterhemp weight \n") + 
+  labs(x = "Growing Degree Days (GDD)", y = "Waterhemp weight (g) \n") +
+
+  theme(text = element_text(size=22),
+    plot.background = element_rect(fill = "white"),
+    axis.line = element_line(colour = "black", 
+                           size = 0.1, linetype = "solid"),
+    legend.position = "top", legend.title = element_blank(),
+    plot.title = element_text(face = "bold", colour = "black", hjust = .5),
+    aspect.ratio = 1/1,
+    axis.text = element_text(face = "bold",color = "black"))
+  
+```
