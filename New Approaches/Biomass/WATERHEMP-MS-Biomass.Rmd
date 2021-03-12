@@ -37,11 +37,12 @@ options(scipen = 999)
 ggplot(data, 
        aes(x = tpl_1, 
            y=weight_reduction_crop, 
-           color=crop)) + 
-  geom_point() + 
+           color=crop, size = weight_g)) + 
+  geom_jitter(alpha = 0.15) + 
   theme_classic() +
   xlab("Transplanting period (days)") +
-  ylab("Waterhemp weight")
+  ylab("Waterhemp weight") +
+  ylim(-25,110)
 ```
 
 
@@ -52,7 +53,7 @@ weight_drm1 = drm(data=data, weight_reduction_crop ~ tpl_1, crop, fct = W2.4(fix
 
 summary(weight_drm1)
 
-plot(weight_drm1, type="b", log = "", ylim=c(0,100))
+plot(weight_drm1, type="all", log = "", ylim=c(0,100))
 
 ```
 
@@ -68,10 +69,30 @@ linreg = F, icfct = AIC)
 ```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
 ED(weight_drm1, c(50,90), type="absolute", interval = "delta")
 compParm(weight_drm1, "slope", "-")
+
+EDcomp(weight_drm1, c(50,50), type="absolute")
 ```
 
+
+```{r}
+ED(weight_drm1, c(50,90), type="absolute", interval = "delta") %>%
+  as_tibble() %>%
+  mutate(trt = c("38 cm soybean:50",
+                 "38 cm soybean:90",
+                 "76 cm soybean:50",
+                 "76 cm soybean:90",
+                 "Corn:50",
+                 "Corn:90",
+                 "Fallow:50",
+                 "Fallow:90")) %>%
+  ggplot(aes(x=fct_reorder(trt, Estimate), y=Estimate, color=trt)) +
+  geom_errorbar(aes(ymin = Lower, ymax=Upper)) +
+  geom_point() + coord_flip()
+```
+
+
 ```{r message=FALSE, warning=FALSE, include=FALSE}
-newdataa <- expand.grid(tpl_1=exp(seq(log(2), log(51), length=51)))
+newdataa <- expand.grid(tpl_1=exp(seq(log(1), log(50), length=50)))
 
 newdataa1 <- data.frame(crop =c("Corn"), newdataa)
 newdataa2 <- data.frame(crop =c("38 cm soybean"), newdataa)
@@ -92,13 +113,15 @@ data$tpl_11[data$tpl_11 == 0] <- 0.5
 
 
 ```{r}
-ggplot(data, aes(x=tpl_1, y=weight_reduction_fal_0, fill = crop)) + 
+weight <- ggplot(data, aes(x=tpl_1, y=weight_reduction_crop, fill = crop, color=crop)) + 
   
-  geom_ribbon(data=ndd, aes(x=tpl_1, y=p, ymin=pmin, ymax=pmax), alpha=0.25) + 
+  #geom_ribbon(data=ndd, aes(x=tpl_1, y=p, ymin=pmin, ymax=pmax), alpha=0.25) + 
   geom_line(data=ndd, aes(x=tpl_1, y=p)) + scale_fill_brewer(palette = "Set1") +
-  
-  theme_clean() + 
- # ylim(-10,114) + 
-  scale_y_continuous(breaks = seq(from = 0, to = 100, by = 25))
+  stat_summary(geom = "point", fun.y = "mean", size = 2) +
+  geom_jitter(aes(size=weight_g), alpha=0.2, width = 3) +
+  theme_clean() +
+  ylim(-10,110)
+  #coord_trans(x = "log")
 
+weight
 ```
