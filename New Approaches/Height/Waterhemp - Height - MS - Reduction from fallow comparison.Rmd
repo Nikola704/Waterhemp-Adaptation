@@ -1,12 +1,14 @@
 ---
-title: "Waterhemp - Master Thesis"
+title: "Waterhemp - Height reduction (first fallow transplanting as a starting point)"
 author: "Nikola Arsenijevic"
-date: "3/10/2021"
+date: "3/22/2021"
 output: html_document
+fig_width: 6 
+fig_height: 4 
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+```{r setup}
+knitr::opts_chunk$set(fig.width=10, fig.height=6)
 ```
 
 ```{r message=FALSE, warning=FALSE, include=FALSE}
@@ -24,61 +26,62 @@ library(ggthemes)
 
 ```{r include=FALSE}
 data = read_csv("waterhemp-new-final.csv")
-fig <- read_csv("ed50and90.csv")
+fig <- read_csv("ed50and90fal.csv")
 
 data$crop=factor(data$crop, 
                  levels = c("corn", "narrow", "wide", "fallow"), 
                  labels = c("Corn", "38 cm soybean", "76 cm soybean", "Fallow (Control)"))
-
-#fig$trt=factor(fig$trt,
-#               levels = "trt",
- #              labels = "Treatment")
-
 ```
 
-## Roughly plotting the data, to view the overall look of it (biomass).
+## Visualization of overall look of the data (waterhemp height reduction)
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 ggplot(data, 
        aes(x = tpl_1, 
-           y=weight_reduction_crop, 
-           color=crop, size = weight_g)) + 
-  geom_jitter(alpha = 0.15) + 
+           y=height_reduction_fal_0, 
+           color=crop, size = height_cm)) + 
+  geom_jitter(alpha = 0.5) + 
   theme_classic() +
   xlab("Transplanting period (days)") +
-  ylab("Waterhemp weight") +
+  ylab("Waterhemp height") +
   ylim(-25,110)
 ```
 
-
-
-## Fitting the 'drm' model for waterhemp biomass reduction
+## Fitting the 'drm' model for waterhemp height reduction
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
-weight_drm1 = drm(data=data, weight_reduction_crop ~ tpl_1, crop, fct = W2.4(fixed = c(NA,0,100,NA), names = c("slope","lower", "upper", "ec50")))
+height_drm1 = drm(data=data, height_reduction_fal_0 ~ tpl_1, crop, fct = l4(fixed = c(NA,0,100,NA), names = c("slope","lower", "upper", "ec50")))
 ```
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
-summary(weight_drm1)
-plot(weight_drm1, type="b", log = "", ylim=c(0,100))
+summary(height_drm1)
+plot(height_drm1, type="b", log = "", ylim=c(0,100), legend = F, lty = 1:1, size=7, col=c("red", "blue", "forestgreen", "black"))
+legend(1, 95, legend=c("Corn",
+                       "38 cm soybean",
+                       "76 cm soybean",
+                       "Fallow (Control)"),
+       col=c("red", "blue", "forestgreen", "black"), 
+       lty=1:1, 
+       cex=0.75,
+       text.font=3, bg='lightblue')
 ```
-
-## Model selection (Lowest IC)
+\pagebreak
+# Checking the AIC values (lowest - best model fit)
 ```{r message=FALSE, warning=FALSE}
-mselect(weight_drm1, list(l3(), l4(), W1.3(), W2.3(), W1.4(), W1.4(), W2.4()),
+mselect(height_drm1, list(l3(), l4(), W1.3(), W2.3(), W1.4(), W1.4()),
 nested = F,
 sorted = c("IC", "Res var", "Lack of fit", "no"),
 linreg = F, icfct = AIC)
 ```
 
-## Estimating ED50 and ED90 values for weight reduction. Also, comparing the slopes of corn, 15in and 30in soybean.
+## Comparing ED50 and ED90 values for height reduction. Also, comparing the slopes of corn, 38 cm and 76 cm soybean.
 ```{r message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
-slope=compParm(weight_drm1, "slope", "-")
+slope=compParm(height_drm1, "slope", "-")
 
-options(scipen = 100, digits = 4)
-EDcomp(weight_drm1, c(50,50), type="absolute")
-ed50=as.data.frame(EDcomp(weight_drm1, c(50,50), type="absolute"))
+options(scipen = 999, digits = 4)
+EDcomp(height_drm1, c(50,50), type="absolute")
+ed50=as.data.frame(EDcomp(height_drm1, c(50,50), type="absolute"))
 
 options(scipen = 50, digits = 4)
-ed90=as.data.frame(EDcomp(weight_drm1, c(90,90), type="absolute"))
+ed90=as.data.frame(EDcomp(height_drm1, c(90,90), type="absolute"))
 
 ```
 
@@ -93,10 +96,9 @@ ed50
 # Comparing ED90
 ed90
 ```
-
-
-```{r eval=FALSE, include=FALSE}
-ED(weight_drm1, c(50,90), type="absolute", interval = "delta") %>%
+## Extracting the estimated ed50 and ed90 values for narrow and wide soybeans, corn and fallow treatment.
+```{r echo=FALSE}
+eds <- ED(height_drm1, c(50,90), type="absolute", interval = "delta") %>%
   as_tibble() %>%
   mutate(trt = c("38 cm soybean:50",
                  "38 cm soybean:90",
@@ -105,16 +107,19 @@ ED(weight_drm1, c(50,90), type="absolute", interval = "delta") %>%
                  "Corn:50",
                  "Corn:90",
                  "Fallow:50",
-                 "Fallow:90")) %>%
-  ggplot(aes(x=fct_reorder(trt, Estimate), y=Estimate, color=trt)) +
-  geom_errorbar(aes(ymin = Lower, ymax=Upper)) +
-  geom_point() + coord_flip()
+                 "Fallow:90"))# %>%
+  #ggplot(aes(x=fct_reorder(trt, Estimate), y=Estimate, color=trt)) +
+  #geom_errorbar(aes(ymin = Lower, ymax=Upper)) +
+  #geom_point() + coord_flip()
+
+print(eds)
 ```
 
+## Plotting the estimated ed50 and ed90 values for crops.
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
   ggplot(fig, aes(x=fct_reorder(Treatment, Estimate), y=Estimate, color=Treatment)) +
   
-  geom_errorbar(aes(ymin = Lower, ymax=Upper), width = 0.2) +
+  geom_errorbar(aes(ymin = Lower, ymax=Upper), width = 0.1) +
   geom_point() + 
   
   coord_flip() + 
@@ -130,7 +135,7 @@ ED(weight_drm1, c(50,90), type="absolute", interval = "delta") %>%
   
 ```
 
-
+## Making a nicer and more complex figure
 ```{r message=FALSE, warning=FALSE, include=FALSE}
 newdataa <- expand.grid(tpl_1=exp(seq(log(1), log(50), length=50)))
 
@@ -141,7 +146,7 @@ newdataa4 <- data.frame(crop =c("Fallow (Control)"), newdataa)
 ndd <- rbind(newdataa1, newdataa2, newdataa3, newdataa4)
 
 
-pmm <- predict(weight_drm1, newdata = ndd, interval="confidence")
+pmm <- predict(height_drm1, newdata = ndd, interval="confidence")
 
 ndd$p <- pmm[,1]
 ndd$pmin <- pmm[,2]
@@ -153,17 +158,17 @@ data$tpl_11[data$tpl_11 == 0] <- 0.5
 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=TRUE}
-biomass <- ggplot(data, aes(x=tpl_1, y=weight_reduction_crop, fill = crop, color=crop)) + 
+height <- ggplot(data, aes(x=tpl_1, y=height_reduction_crop, fill = crop, color=crop)) + 
   
   #geom_ribbon(data=ndd, aes(x=tpl_1, y=p, ymin=pmin, ymax=pmax), alpha=0.25) + 
   geom_line(data=ndd, aes(x=tpl_1, y=p)) + scale_fill_brewer(palette = "Set1") +
   stat_summary(geom = "point", fun.y = "mean", size = 2) +
-  geom_jitter(aes(size=weight_g), alpha=0.3, width = 3) +
+  geom_jitter(aes(size=height_cm), alpha=0.4, width = 3) +
   theme_clean() +
-  ylim(-10,110)
-  #coord_trans(x = "log")
+  ylim(-30,110) +
+  
+  labs(x = 'Days from first transplanting (mid June)',
+       y = 'Waterhemp height reduction (%)')
 
-biomass
+height
 ```
-
-\pagebreak
